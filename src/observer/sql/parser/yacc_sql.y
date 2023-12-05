@@ -77,6 +77,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INT_T
         STRING_T
         FLOAT_T
+        DATE_T
         HELP
         EXIT
         DOT //QUOTE
@@ -116,10 +117,12 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   char *                            string;
   int                               number;
   float                             floats;
+  date                              dates;
 }
 
 %token <number> NUMBER
 %token <floats> FLOAT
+%token <dates> DATE
 %token <string> ID
 %token <string> SSS
 //非终结符
@@ -340,6 +343,7 @@ type:
     INT_T      { $$=INTS; }
     | STRING_T { $$=CHARS; }
     | FLOAT_T  { $$=FLOATS; }
+    | DATE_T   { $$=DATES; }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 
@@ -379,6 +383,9 @@ value:
     |FLOAT {
       $$ = new Value((float)$1);
       @$ = @1;
+    }
+    |DATE {
+      $$ = new Value((date)$1);
     }
     |SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
