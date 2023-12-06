@@ -599,6 +599,18 @@ select_attr:
       attr.attribute_name = "*";
       $$->emplace_back(attr);
     }
+    | '*' COMMA rel_attr attr_list {
+      if ($4 != nullptr) {
+        $$ = $4;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
+      $$->emplace_back(*$3);
+      RelAttrSqlNode attr;
+      attr.relation_name  = "";
+      attr.attribute_name = "*";
+      $$->emplace_back(attr);
+    }
     | rel_attr attr_list {
       if ($2 != nullptr) {
         $$ = $2;
@@ -607,6 +619,13 @@ select_attr:
       }
       $$->emplace_back(*$1);
       delete $1;
+    }
+    | /* empty */ {
+      $$ = new std::vector<RelAttrSqlNode>;
+      RelAttrSqlNode attr;
+      attr.relation_name  = "";
+      attr.attribute_name = "";
+      $$->emplace_back(attr);
     }
     ;
 
