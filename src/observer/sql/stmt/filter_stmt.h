@@ -95,7 +95,7 @@ public:
   virtual ~FilterStmt();
 
 public:
-  const std::vector<FilterUnit *> &filter_units() const
+  std::vector<FilterUnit *> &filter_units()
   {
     return filter_units_;
   }

@@ -61,3 +61,9 @@ void ProjectPhysicalOperator::add_projection(const Table *table, const FieldMeta
   TupleCellSpec *spec = new TupleCellSpec(table->name(), field_meta->name(), field_meta->name());
   tuple_.add_cell_spec(spec);
 }
+void ProjectPhysicalOperator::add_projection(const AggregationExpr *&aggr_expr) 
+{
+  TupleCellSpec spec = aggr_expr->cell_spec();
+  TupleCellSpec *p = new TupleCellSpec(spec.table_name(), spec.field_name(), spec.alias());
+  tuple_.add_cell_spec(p);
+}

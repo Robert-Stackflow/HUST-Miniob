@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
+#include "sql/operator/aggr_logical_operator.h"
 
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/calc_stmt.h"
@@ -90,16 +91,70 @@ RC LogicalPlanGenerator::create_plan(
   unique_ptr<LogicalOperator> table_oper(nullptr);
 
   const std::vector<Table *> &tables = select_stmt->tables();
-  const std::vector<Field> &all_fields = select_stmt->query_fields();
+  std::vector<Expression*> &query_exprs = select_stmt->query_exprs();
+  std::vector<Expression*> aggr_exprs;
+
+  FilterStmt * filter_stmt = select_stmt->filter_stmt();
   for (Table *table : tables) {
     std::vector<Field> fields;
-    for (const Field &field : all_fields) {
-      if (0 == strcmp(field.table_name(), table->name())) {
-        fields.push_back(field);
+    for (Expression *expr : query_exprs) {
+      switch (expr->type()) {
+        case ExprType::FIELD : {
+          FieldExpr *field_expr = static_cast<FieldExpr*>(expr);
+          if (0 == strcmp(field_expr->field().table_name(), table->name())) {
+            fields.push_back(field_expr->field());
+          }
+          LOG_INFO("Field : %s %s",field_expr->field().table_name(),field_expr->field().field_name());
+        } break;
+        case ExprType::AGGREGATION : {
+          AggregationExpr *aggr_expr = static_cast<AggregationExpr*>(expr);
+          if (0 == strcmp(aggr_expr->field().table_name(), table->name())) {
+            fields.push_back(aggr_expr->field());
+            aggr_exprs.push_back(expr);
+          }
+          LOG_INFO("Aggregation : %s %s %d",aggr_expr->field().table_name(),aggr_expr->field().field_name(),aggr_expr->aggr_type());
+        } break;
+        default : {
+          return RC::INTERNAL;
+        }
       }
     }
 
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true/*readonly*/));
+    // if (filter_stmt) {
+    //   std::vector<std::unique_ptr<Expression>> table_scan_exprs;
+    //   std::vector<FilterUnit *> &filter_units = filter_stmt->filter_units();
+
+    //   for (auto filter_unit = filter_units.rbegin(); filter_unit != filter_units.rend();) {
+    //     const FilterObj &filter_obj_left = (*filter_unit)->left();
+    //     const FilterObj &filter_obj_right = (*filter_unit)->right();
+    //     if (  (
+    //             ( filter_obj_left.is_attr && !filter_obj_right.is_attr ) &&
+    //             ( 0 == strcmp(filter_obj_left.field.table_name(), table->name()))
+    //           ) ||
+    //           (
+    //             ( !filter_obj_left.is_attr && filter_obj_right.is_attr) &&
+    //             ( 0 == strcmp(filter_obj_left.field.table_name(), table->name()))
+    //           ) 
+    //        ) {
+    //       unique_ptr<Expression> left(filter_obj_left.is_attr
+    //                                           ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
+    //                                           : static_cast<Expression *>(new ValueExpr(filter_obj_left.value)));
+
+    //       unique_ptr<Expression> right(filter_obj_right.is_attr
+    //                                             ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
+    //                                             : static_cast<Expression *>(new ValueExpr(filter_obj_right.value)));
+
+    //       ComparisonExpr *cmp_expr = new ComparisonExpr((*filter_unit)->comp(), std::move(left), std::move(right));
+    //       table_scan_exprs.emplace_back(cmp_expr);
+    //       filter_unit = decltype(filter_unit)(filter_units.erase(std::next(filter_unit).base())); // 删除并更新迭代器
+    //     } else {
+    //       ++filter_unit;    
+    //     }
+    //   }
+
+    //   table_scan_oper->set_predicates(std::move(table_scan_exprs));
+    // }
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
     } else {
@@ -117,7 +172,31 @@ RC LogicalPlanGenerator::create_plan(
     return rc;
   }
 
-  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields));
+  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(query_exprs));
+
+  // ================== 聚合 ================== //
+  unique_ptr<LogicalOperator> aggr_oper(new AggregationLogicalOperator(aggr_exprs));
+  bool aggr_ = true;
+  if (aggr_exprs.size() != 0) {     // 如果有投影算子，则将后面的都连好
+    if (predicate_oper) {
+      if (table_oper) {
+        predicate_oper->add_child(std::move(table_oper));
+      }
+      aggr_oper->add_child(std::move(predicate_oper));
+    } else {
+      if (table_oper) {
+        aggr_oper->add_child(std::move(table_oper));
+      }
+    }
+  } else {
+    aggr_ = false;
+  }
+
+  if (aggr_) {
+    project_oper->add_child(std::move(aggr_oper));
+    logical_operator.swap(project_oper);
+    return RC::SUCCESS;
+  }
   if (predicate_oper) {
     if (table_oper) {
       predicate_oper->add_child(std::move(table_oper));

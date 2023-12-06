@@ -347,6 +347,11 @@ public:
     cells_ = cells;
   }
 
+  void set_speces(const std::vector<TupleCellSpec> &cellSpecs)
+  {
+    cellSpecs_ = cellSpecs;
+  }
+
   virtual int cell_num() const override
   {
     return static_cast<int>(cells_.size());
@@ -364,11 +369,22 @@ public:
 
   virtual RC find_cell(const TupleCellSpec &spec, Value &cell) const override
   {
-    return RC::INTERNAL;
+    if (cellSpecs_.size() != cells_.size()) {
+      return RC::INTERNAL;
+    }
+    // TODO: 修改
+    for (int i = 0; i < cellSpecs_.size(); i++) {
+      if (spec.alias() && cellSpecs_[i].alias() && 0 == strcmp(spec.alias(), cellSpecs_[i].alias())) {
+        return cell_at(i, cell);
+      }
+      // TODO alias不同
+    }
+    return RC::EMPTY;
   }
 
 private:
   std::vector<Value> cells_;
+  std::vector<TupleCellSpec> cellSpecs_;
 };
 
 /**

@@ -98,6 +98,11 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         LE
         GE
         NE
+        MAX
+        MIN
+        COUNT
+        AVG
+        SUM
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -118,6 +123,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   int                               number;
   float                             floats;
   date                              dates;
+  AggrFuncType                      aggr_func_type;
+  AggrFuncSqlNode*                     aggr_func_node;
+  SelectExprSqlNode*                   select_expr_node;
+  std::vector<SelectExprSqlNode> *     s_expr_node_list;
 }
 
 %token <number> NUMBER
@@ -167,6 +176,11 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <sql_node>            command_wrapper
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
+%type <aggr_func_type>      aggr_func_type
+%type <aggr_func_node>      aggr_func
+%type <select_expr_node>    select_expr
+%type <s_expr_node_list>    select_expr_list
+%type <s_expr_node_list>    select_exprs
 
 %left '+' '-'
 %left '*' '/'
@@ -422,11 +436,11 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where
+    SELECT select_exprs FROM ID rel_list where
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
-        $$->selection.attributes.swap(*$2);
+        $$->selection.select_exprs.swap(*$2);
         delete $2;
       }
       if ($5 != nullptr) {
@@ -435,7 +449,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
       $$->selection.relations.push_back($4);
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
-
+      
       if ($6 != nullptr) {
         $$->selection.conditions.swap(*$6);
         delete $6;
@@ -493,6 +507,87 @@ expression:
       $$ = new ValueExpr(*$1);
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
+    }
+    ;
+
+select_exprs:
+    '*' {
+      $$ = new std::vector<SelectExprSqlNode>;
+      SelectExprSqlNode expr;
+      expr.type = REL_ATTR_SELECT_T;
+      expr.attribute = new RelAttrSqlNode;
+      expr.attribute->relation_name  = "";
+      expr.attribute->attribute_name = "*";
+      $$->emplace_back(expr);
+    }
+    | select_expr select_expr_list {
+      if ($2 != nullptr) {
+        $$ = $2;
+      } else {
+        $$ = new std::vector<SelectExprSqlNode>;
+      }
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    ;
+
+select_expr:
+    rel_attr {
+      $$ = new SelectExprSqlNode;
+      $$->type = REL_ATTR_SELECT_T;
+      $$->attribute = $1;
+    }
+    | aggr_func {
+      $$ = new SelectExprSqlNode;
+      $$->type = AGGR_FUNC_SELECT_T;
+      $$->aggrfunc = $1;
+    }
+    ;
+  
+select_expr_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | COMMA select_expr select_expr_list {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<SelectExprSqlNode>;
+      }
+
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    ;
+
+aggr_func:
+    aggr_func_type LBRACE select_attr RBRACE {
+      $$ = new AggrFuncSqlNode;
+      $$->type = $1;
+
+      if ($3 != nullptr) {
+        $$->attributes.swap(*$3);
+        delete $3;
+      }
+    }
+    ;
+
+aggr_func_type:
+    MAX {
+      $$ = MAX_AGGR_T;
+    }
+    | MIN {
+      $$ = MIN_AGGR_T;
+    }
+    | COUNT {
+      $$ = COUNT_AGGR_T;
+    }
+    | AVG {
+      $$ = AVG_AGGR_T;
+    }
+    | SUM {
+      $$ = SUM_AGGR_T;
     }
     ;
 

@@ -34,6 +34,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/calc_physical_operator.h"
 #include "sql/operator/update_logical_operator.h"
 #include "sql/operator/update_physical_operator.h"
+#include "sql/operator/aggr_logical_operator.h"
+#include "sql/operator/aggr_physical_operatior.h" 
 #include "sql/expr/expression.h"
 #include "common/log/log.h"
 
@@ -80,10 +82,39 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
       return create_plan(static_cast<JoinLogicalOperator &>(logical_operator), oper);
     } break;
 
+    case LogicalOperatorType::AGGREGATION: {
+      return create_plan(static_cast<AggregationLogicalOperator &>(logical_operator), oper);
+    } break;
+
     default: {
       return RC::INVALID_ARGUMENT;
     }
   }
+  return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(AggregationLogicalOperator &aggr_oper, unique_ptr<PhysicalOperator> &oper)
+{  
+  // 递归子创建子算子
+  vector<unique_ptr<LogicalOperator>> &child_opers = aggr_oper.children();
+  ASSERT(child_opers.size() > 0, "聚合算子必须有子物理算子");
+
+  unique_ptr<PhysicalOperator> child_phy_oper;
+
+  RC rc = RC::SUCCESS;
+  if (!child_opers.empty()) {
+    // 为第一个子逻辑算子创建物理算子
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc = create(*child_oper, child_phy_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create child operator. rc=%s", strrc(rc));
+      return rc;
+    }
+  }
+
+  vector<Expression*> &expressions = aggr_oper.select_exprs();
+  oper = unique_ptr<PhysicalOperator>(new AggrPhysicalOperator(expressions));
+  oper->add_child(std::move(child_phy_oper));
   return rc;
 }
 
@@ -194,10 +225,25 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
     }
   }
 
+  vector<Expression*> &expressions = project_oper.select_exprs();
   ProjectPhysicalOperator *project_operator = new ProjectPhysicalOperator;
-  const vector<Field> &project_fields = project_oper.fields();
-  for (const Field &field : project_fields) {
-    project_operator->add_projection(field.table(), field.meta());
+  for (Expression *&expr : expressions) {
+    switch (expr->type())
+    {
+    case ExprType::FIELD : {
+      LOG_INFO("field expression");
+      const FieldExpr* field_expr = static_cast<FieldExpr*>(expr);
+      project_operator->add_projection(field_expr->field().table(), field_expr->field().meta());
+    } break;
+    case ExprType::AGGREGATION : {
+      LOG_INFO("aggregation expression");
+      const AggregationExpr* aggr_expr = static_cast<AggregationExpr*>(expr);
+      project_operator->add_projection(aggr_expr);
+    } break;
+    default: {
+      return RC::UNIMPLENMENT;
+    } break;
+    }
   }
 
   if (child_phy_oper) {

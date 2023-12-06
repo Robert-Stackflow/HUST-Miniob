@@ -69,13 +69,24 @@ RC ExecuteStage::handle_request_with_physical_operator(SQLStageEvent *sql_event)
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
       bool with_table_name = select_stmt->tables().size() > 1;
 
-      for (const Field &field : select_stmt->query_fields()) {
-        if (with_table_name) {
-          schema.append_cell(field.table_name(), field.field_name());
-        } else {
-          schema.append_cell(field.field_name());
+      // TODO: 改用Expression的name
+      std::vector<Expression*> &query_exprs = select_stmt->query_exprs();
+      for (Expression* expr: query_exprs) {
+        switch (expr->type())
+        {
+        case ExprType::FIELD: {
+          FieldExpr *field = static_cast<FieldExpr *>(expr);
+          schema.append_cell(field->cell_spec(with_table_name));
+        } break;
+        case ExprType::AGGREGATION: {
+          AggregationExpr *aggr = static_cast<AggregationExpr *>(expr);
+          schema.append_cell(aggr->cell_spec(with_table_name));
+        } break;
+        default:
+          break;
         }
       }
+      // 使用投影算子设置列名
     } break;
 
     case StmtType::CALC: {

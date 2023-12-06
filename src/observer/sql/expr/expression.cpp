@@ -328,3 +328,184 @@ RC ArithmeticExpr::try_get_value(Value &value) const
 
   return calc_value(left_value, right_value, value);
 }
+
+AggregationExpr::AggregationExpr(Field field, AggrFuncType aggr_type)
+{
+  aggr_type_ = aggr_type;
+  field_ = field;
+  field_expr_ = new FieldExpr(field_);
+
+  switch (aggr_type_)
+  {
+  case MAX_AGGR_T: {
+    attr_type_ = field_.attr_type();
+    aggr_func_ = &AggregationExpr::max_aggr_func;
+  } break;
+  case MIN_AGGR_T: {
+    attr_type_ = field_.attr_type();
+    aggr_func_ = &AggregationExpr::min_aggr_func;
+  } break;
+  case SUM_AGGR_T: {
+    attr_type_ = field_.attr_type();
+    aggr_func_ = &AggregationExpr::sum_aggr_func;
+  } break;
+  case AVG_AGGR_T: {
+    attr_type_ = FLOATS;
+    aggr_func_ = &AggregationExpr::avg_aggr_func;
+  } break;
+  case COUNT_AGGR_T: {
+    attr_type_ = INTS;
+    aggr_func_ = &AggregationExpr::count_aggr_func;
+  } break;
+  default:
+    break;
+  }
+}
+
+RC AggregationExpr::get_value(const Tuple &tuple, Value &value) const { return RC::SUCCESS; }
+
+RC AggregationExpr::try_get_value(Value &value) const { return RC::SUCCESS; }
+
+TupleCellSpec AggregationExpr::cell_spec(bool with_table_name) const
+{ 
+  std::string alias;
+  switch (aggr_type_)
+  {
+  case AggrFuncType::MAX_AGGR_T: {
+    alias += "MAX(";
+  } break;
+  case AggrFuncType::MIN_AGGR_T: {
+    alias += "MIN(";
+  } break;
+  case AggrFuncType::COUNT_AGGR_T: {
+    alias += "COUNT(";
+  } break;
+  case AggrFuncType::SUM_AGGR_T: {
+    alias += "SUM(";
+  } break;
+  case AggrFuncType::AVG_AGGR_T: {
+    alias += "AVG(";
+  } break;
+  default:
+    alias += "ERR_FUNC_TYPE(";
+  }
+  if (with_table_name) {
+    alias += field_.table_name();
+  }
+  alias += field_.field_name();
+  alias += ")";
+  
+  return TupleCellSpec(field_.table_name(), field_.field_name(), alias.c_str());
+}
+
+RC AggregationExpr::begin_aggr() 
+{ 
+  // value_ = new Value();
+  //value_->set_type(attr_type_);
+  i_val_ = 0;
+  f_val_ = 0;
+  return RC::SUCCESS; 
+}
+
+RC AggregationExpr::aggr_tuple(Tuple *&tuple) 
+{ 
+  Value value;
+  field_expr_->get_value(*tuple, value);
+  return (this->*aggr_func_)(value);
+}
+
+RC AggregationExpr::get_result(Value &value) 
+{ 
+  switch (aggr_type_ ) {
+    case MAX_AGGR_T:
+    case MIN_AGGR_T: {
+      value = value_;
+    } break;
+    case COUNT_AGGR_T: {
+      value = Value((int)i_val_);
+    } break;
+    case SUM_AGGR_T: {
+      if (attr_type_ == AttrType::INTS)
+        value = Value((int)i_val_);
+      else
+        value = Value((float)f_val_);
+    } break;
+    case AVG_AGGR_T: {
+      if (i_val_ == 0) {
+        value = Value((float)0);
+      } else {
+        value = Value((float)(f_val_ / i_val_));
+      }
+    } break;
+    default: {
+      return RC::INTERNAL;
+    }
+  }
+
+  return RC::SUCCESS;
+}
+
+RC AggregationExpr::max_aggr_func(Value &value) 
+{ 
+  if (value_.attr_type() == AttrType::UNDEFINED) {
+    value_ = value;
+    return RC::SUCCESS;
+  }
+  int rt = value_.compare(value);
+  if (rt < 0) {
+    value_ = value;
+  }
+  return RC::SUCCESS;
+}
+
+RC AggregationExpr::min_aggr_func(Value &value) 
+{ 
+  if (value_.attr_type() == AttrType::UNDEFINED) {
+    value_ = value;
+    return RC::SUCCESS;
+  }
+  int rt = value_.compare(value);
+  if (rt > 0) {
+    value_ = value;
+  }
+  return RC::SUCCESS;
+}
+
+RC AggregationExpr::sum_aggr_func(Value &value) 
+{ 
+  switch (attr_type_ ) {
+    case INTS: {
+      i_val_ += value.get_int();
+    } break;
+    case FLOATS: {
+      f_val_ += value.get_float();
+    } break;
+    default: {
+      return RC::INTERNAL;
+    }
+  }
+  return RC::SUCCESS;
+}
+
+RC AggregationExpr::avg_aggr_func(Value &value) 
+{ 
+  switch (attr_type_ ) {
+    case INTS: {
+      f_val_ += (float)value.get_int();
+    } break;
+    case FLOATS: {
+      f_val_ += value.get_float();
+    } break;
+    default: {
+      return RC::INTERNAL;
+    }
+  }
+  i_val_ += 1; 
+  return RC::SUCCESS;
+}
+
+RC AggregationExpr::count_aggr_func(Value &value) 
+{ 
+  i_val_ += 1; 
+  return RC::SUCCESS;
+}

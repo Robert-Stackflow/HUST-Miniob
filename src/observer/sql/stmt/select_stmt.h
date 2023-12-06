@@ -49,9 +49,8 @@ public:
   {
     return tables_;
   }
-  const std::vector<Field> &query_fields() const
-  {
-    return query_fields_;
+  std::vector<Expression*> &query_exprs() {
+    return query_exprs_;
   }
   FilterStmt *filter_stmt() const
   {
@@ -59,7 +58,7 @@ public:
   }
 
 private:
-  std::vector<Field> query_fields_;
+  std::vector<Expression *> query_exprs_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
 };
