@@ -124,9 +124,11 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   float                             floats;
   date                              dates;
   AggrFuncType                      aggr_func_type;
-  AggrFuncSqlNode*                     aggr_func_node;
-  SelectExprSqlNode*                   select_expr_node;
-  std::vector<SelectExprSqlNode> *     s_expr_node_list;
+  AggrFuncSqlNode*                  aggr_func_node;
+  SelectExprSqlNode*                select_expr_node;
+  std::vector<SelectExprSqlNode> *  s_expr_node_list;
+  RawTuple *                        raw_tuple;
+  std::vector<RawTuple> *           raw_tuple_list;
 }
 
 %token <number> NUMBER
@@ -181,6 +183,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <select_expr_node>    select_expr
 %type <s_expr_node_list>    select_expr_list
 %type <s_expr_node_list>    select_exprs
+%type <raw_tuple>           raw_tuple
+%type <raw_tuple_list>      raw_tuple_list
 
 %left '+' '-'
 %left '*' '/'
@@ -360,20 +364,57 @@ type:
     | DATE_T   { $$=DATES; }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES LBRACE value value_list RBRACE 
+    INSERT INTO ID VALUES raw_tuple raw_tuple_list
     {
       $$ = new ParsedSqlNode(SCF_INSERT);
       $$->insertion.relation_name = $3;
-      if ($7 != nullptr) {
-        $$->insertion.values.swap(*$7);
+      if ($6 != nullptr) {
+        $$->insertion.tuples.swap(*$6);
       }
-      $$->insertion.values.emplace_back(*$6);
-      std::reverse($$->insertion.values.begin(), $$->insertion.values.end());
-      delete $6;
+      $$->insertion.tuples.emplace_back(*$5);
+      std::reverse($$->insertion.tuples.begin(), $$->insertion.tuples.end());
       free($3);
     }
     ;
-
+    // INSERT INTO ID VALUES LBRACE value value_list RBRACE 
+    // {
+    //   $$ = new ParsedSqlNode(SCF_INSERT);
+    //   $$->insertion.relation_name = $3;
+    //   if ($7 != nullptr) {
+    //     $$->insertion.values.swap(*$7);
+    //   }
+    //   $$->insertion.values.emplace_back(*$6);
+    //   std::reverse($$->insertion.values.begin(), $$->insertion.values.end());
+    //   delete $6;
+    //   free($3);
+    // }
+    // ;
+raw_tuple_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | COMMA raw_tuple raw_tuple_list  { 
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<RawTuple>;
+      }
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    ;
+raw_tuple:
+    LBRACE value value_list RBRACE {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new RawTuple;
+      }
+      $$->emplace_back(*$2);
+      std::reverse($$->begin(), $$->end());
+      delete $2;
+    }
 value_list:
     /* empty */
     {

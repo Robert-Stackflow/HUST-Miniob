@@ -137,11 +137,13 @@ union YYSTYPE
   float                             floats;
   date                              dates;
   AggrFuncType                      aggr_func_type;
-  AggrFuncSqlNode*                     aggr_func_node;
-  SelectExprSqlNode*                   select_expr_node;
-  std::vector<SelectExprSqlNode> *     s_expr_node_list;
+  AggrFuncSqlNode*                  aggr_func_node;
+  SelectExprSqlNode*                select_expr_node;
+  std::vector<SelectExprSqlNode> *  s_expr_node_list;
+  RawTuple *                        raw_tuple;
+  std::vector<RawTuple> *           raw_tuple_list;
 
-#line 145 "yacc_sql.hpp"
+#line 147 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;
