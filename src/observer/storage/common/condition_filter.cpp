@@ -121,6 +121,7 @@ RC DefaultConditionFilter::init(Table &table, const ConditionSqlNode &condition)
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
   }
+  return init(left, right, type_left, condition.comp);
 }
 
 bool DefaultConditionFilter::filter(const Record &rec) const

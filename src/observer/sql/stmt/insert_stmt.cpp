@@ -38,7 +38,7 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   }
 
   // check the fields number
-  for(auto values : inserts.tuples){
+  for(auto values : inserts.tuples) {
     const int value_num = static_cast<int>(values.size());
     const TableMeta &table_meta = table->table_meta();
     const int field_num = table_meta.field_num() - table_meta.sys_field_num();
@@ -53,7 +53,7 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
       const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
       const AttrType field_type = field_meta->type();
       const AttrType value_type = values[i].attr_type();
-      if (field_type != value_type && (!field_meta->nullable() && value_type==NULLS)) {
+      if (field_type != value_type && !(value_type==NULLS && field_meta->nullable())) {
         LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
             table_name, field_meta->name(), field_type, value_type);
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;

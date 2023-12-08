@@ -104,7 +104,6 @@ RC LogicalPlanGenerator::create_plan(
           if (0 == strcmp(field_expr->field().table_name(), table->name())) {
             fields.push_back(field_expr->field());
           }
-          LOG_INFO("Field : %s %s",field_expr->field().table_name(),field_expr->field().field_name());
         } break;
         case ExprType::AGGREGATION : {
           AggregationExpr *aggr_expr = static_cast<AggregationExpr*>(expr);
@@ -112,7 +111,6 @@ RC LogicalPlanGenerator::create_plan(
             fields.push_back(aggr_expr->field());
             aggr_exprs.push_back(expr);
           }
-          LOG_INFO("Aggregation : %s %s %d",aggr_expr->field().table_name(),aggr_expr->field().field_name(),aggr_expr->aggr_type());
         } break;
         default : {
           return RC::INTERNAL;

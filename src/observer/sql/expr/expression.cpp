@@ -89,7 +89,6 @@ ComparisonExpr::~ComparisonExpr()
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
   RC rc = RC::SUCCESS;
-  LOG_WARN("Left Type:%s,Right Type:%s",attr_type_to_string(left.attr_type()),attr_type_to_string(right.attr_type()));
   result = false;
   if(right.attr_type()==NULLS){
     if(comp_==IS){
@@ -424,6 +423,7 @@ RC AggregationExpr::aggr_tuple(Tuple *&tuple)
     has_record=true;
     return (this->*aggr_func_)(value);
   }
+  return RC::SUCCESS;
 }
 
 RC AggregationExpr::get_result(Value &value) 
