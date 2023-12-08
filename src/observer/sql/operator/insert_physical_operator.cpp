@@ -25,7 +25,6 @@ InsertPhysicalOperator::InsertPhysicalOperator(Table *table, std::vector<RawTupl
 
 RC InsertPhysicalOperator::open(Trx *trx)
 {
-  LOG_WARN("%d",tuples_.size());
   std::vector<Record *> records;
   for(auto tuple : tuples_) {
     Record record;
@@ -41,7 +40,7 @@ RC InsertPhysicalOperator::open(Trx *trx)
       for(Record* tmp: records){
         trx->delete_record(table_,*tmp);
       }
-      break;
+      return rc;
     }
   }
   return RC::SUCCESS;

@@ -17,6 +17,9 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/index.h"
 #include "storage/index/bplus_tree.h"
 
+
+class Table;
+
 /**
  * @brief B+树索引
  * @ingroup Index
@@ -24,13 +27,15 @@ See the Mulan PSL v2 for more details. */
 class BplusTreeIndex : public Index 
 {
 public:
-  BplusTreeIndex() = default;
+  BplusTreeIndex(bool unique = false) : unique_(unique) {}
   virtual ~BplusTreeIndex() noexcept;
-
   RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
   RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
   RC close();
-
+  void set_table(Table* table){
+    table_=table;
+  };
+  RC find(IndexScanner *scanner , const char* key);
   RC insert_entry(const char *record, const RID *rid) override;
   RC delete_entry(const char *record, const RID *rid) override;
 
@@ -45,6 +50,8 @@ public:
 private:
   bool inited_ = false;
   BplusTreeHandler index_handler_;
+  bool unique_;
+  Table* table_;
 };
 
 /**

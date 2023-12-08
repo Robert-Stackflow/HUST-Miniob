@@ -14,6 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/index/bplus_tree_index.h"
 #include "common/log/log.h"
+#include "bplus_tree_index.h"
+#include "storage/table/table.h"
+#include "common/lang/comparator.h"
 
 BplusTreeIndex::~BplusTreeIndex() noexcept
 {
@@ -87,11 +90,41 @@ RC BplusTreeIndex::close()
   return RC::SUCCESS;
 }
 
-RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
+RC BplusTreeIndex::insert_entry(const char *record, const RID *rid) 
 {
+  if(unique_){
+    RC rc;
+    RID rid;
+    rc=find(create_scanner(nullptr,0,false,nullptr,0,false),record + field_meta_.offset());
+    // IndexScanner *scanner =create_scanner(record + field_meta_.offset(),0,true,record + field_meta_.offset(),0,true);
+    // rc=scanner->next_entry(&rid);
+    if(rc==RC::SUCCESS){
+      // delete scanner;
+      return RC::RECORD_DUPLICATE_KEY;
+    }
+    // delete scanner;
+  }
   return index_handler_.insert_entry(record + field_meta_.offset(), rid);
 }
-
+RC BplusTreeIndex::find(IndexScanner *scanner , const char* key)
+{
+  if (!scanner){
+    return RC::INTERNAL;
+  }
+  if (!table_){
+    return RC::INTERNAL;
+  }
+  RC rc;
+  RID rid;
+  Record record;
+  while((rc=scanner->next_entry(&rid))!=RC::RECORD_EOF){
+    table_->get_record(rid,record);
+    if(common::compare_string((void *)(record.data() + field_meta_.offset()) ,field_meta_.len(), (void *)key,field_meta_.len())==0){
+      return RC::SUCCESS;
+    }
+  }
+  return RC::RECORD_EOF;
+}
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
 {
   return index_handler_.delete_entry(record + field_meta_.offset(), rid);
