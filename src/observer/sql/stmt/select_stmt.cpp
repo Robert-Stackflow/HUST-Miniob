@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/aggregation_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include "sql/stmt/join_stmt.h"
 
 SelectStmt::~SelectStmt()
 {
@@ -56,6 +57,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
   // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
+  
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].c_str();
     if (nullptr == table_name) {
@@ -73,9 +75,26 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
 
+  for (size_t i = 0; i < select_sql.joins.size(); i++) {
+    const char *table_name = select_sql.joins[i].relation.c_str();
+    LOG_WARN("Relation name is %s", table_name);
+    if (nullptr == table_name) {
+      LOG_WARN("invalid argument. relation name is null. index=%d", i);
+      return RC::INVALID_ARGUMENT;
+    }
+
+    Table *table = db->find_table(table_name);
+    if (nullptr == table) {
+      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
+
+    tables.push_back(table);
+    table_map.insert(std::pair<std::string, Table *>(table_name, table));
+  }
+
   // collect query fields in `select` statement
   std::vector<Expression *> query_exprs;
-    // TODO, 先简单使用数量判断，做group by时再来修改
   int num_attr = 0; // 属性数
   int num_aggr = 0; // 聚合数
   for (int i = static_cast<int>(select_sql.select_exprs.size()) - 1; i >= 0; i--) {
@@ -170,11 +189,23 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     return rc;
   }
 
+  std::vector<JoinStmt*> join_stmts;
+  for (size_t i = 0; i < select_sql.joins.size(); i++) {
+    RC rc = RC::SUCCESS;
+    JoinStmt* join_stmt = nullptr;
+    rc = JoinStmt::create(db, default_table, &table_map, select_sql.joins[i], join_stmt);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    join_stmts.push_back(join_stmt);
+  }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   select_stmt->tables_.swap(tables);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->query_exprs_.swap(query_exprs);
+  select_stmt->join_stmts_.swap(join_stmts);
   stmt = select_stmt;
   return RC::SUCCESS;
 }

@@ -108,6 +108,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         NOT
         NULL_T
         NULLABLE
+        INNER
+        JOIN
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -134,6 +136,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<SelectExprSqlNode> *  s_expr_node_list;
   RawTuple *                        raw_tuple;
   std::vector<RawTuple> *           raw_tuple_list;
+  JoinSqlNode *                     join_node;  
+  std::vector<JoinSqlNode>*         join_list;
 }
 
 %token <number> NUMBER
@@ -190,6 +194,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <s_expr_node_list>    select_exprs
 %type <raw_tuple>           raw_tuple
 %type <raw_tuple_list>      raw_tuple_list
+%type <join_node>           join_node
+%type <join_list>           join_list
 
 %left '+' '-'
 %left '*' '/'
@@ -544,7 +550,53 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
       free($4);
     }
+    | SELECT select_exprs FROM ID join_node join_list where
+    {
+      $$ = new ParsedSqlNode(SCF_SELECT);
+      if ($2 != nullptr) {
+        $$->selection.select_exprs.swap(*$2);
+        delete $2;
+      }
+      if ($6 != nullptr) {
+        $$->selection.joins.swap(*$6);
+        delete $6;
+      }
+      $$->selection.joins.emplace_back(*$5);
+      std::reverse($$->selection.joins.begin(), $$->selection.joins.end());
+      $$->selection.relations.push_back($4);
+      if ($7 != nullptr) {
+        $$->selection.conditions.swap(*$7);
+        delete $7;
+      }
+      free($4);
+    }
     ;
+join_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | join_node join_list  { 
+      if ($2 != nullptr) {
+        $$ = $2;
+      } else {
+        $$ = new std::vector<JoinSqlNode>;
+      }
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    ;
+join_node:
+    INNER JOIN ID ON condition_list
+    {
+      $$ = new JoinSqlNode;
+      if ($5 != nullptr) {
+        $$->conditions.swap(*$5);
+      }
+      $$->relation = $3;
+      free($3);
+      delete $5;
+    }
 calc_stmt:
     CALC expression_list
     {

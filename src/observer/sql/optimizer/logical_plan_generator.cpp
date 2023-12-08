@@ -35,6 +35,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/explain_stmt.h"
 #include "sql/stmt/update_stmt.h"
+#include "sql/stmt/join_stmt.h"
 
 using namespace std;
 
@@ -93,6 +94,9 @@ RC LogicalPlanGenerator::create_plan(
   const std::vector<Table *> &tables = select_stmt->tables();
   std::vector<Expression*> &query_exprs = select_stmt->query_exprs();
   std::vector<Expression*> aggr_exprs;
+  bool is_inner_join = select_stmt->join_stmts().size() > 0;
+  std::vector<JoinStmt*> &join_stmts = select_stmt->join_stmts();
+  int index=0;
 
   FilterStmt * filter_stmt = select_stmt->filter_stmt();
   for (Table *table : tables) {
@@ -119,48 +123,35 @@ RC LogicalPlanGenerator::create_plan(
     }
 
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true/*readonly*/));
-    // if (filter_stmt) {
-    //   std::vector<std::unique_ptr<Expression>> table_scan_exprs;
-    //   std::vector<FilterUnit *> &filter_units = filter_stmt->filter_units();
+    if (is_inner_join) {
+      if (table_oper == nullptr) {
+        table_oper = std::move(table_get_oper);
+      } else {
+        unique_ptr<LogicalOperator> join_oper(new JoinLogicalOperator);
+        join_oper->add_child(std::move(table_oper));
+        join_oper->add_child(std::move(table_get_oper));
+        unique_ptr<LogicalOperator> predicate_oper;
+        FilterStmt *filter = join_stmts[index-1]->join_condition();
+        RC rc = create_plan(filter, predicate_oper);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+          return rc;
+        }
+        predicate_oper->add_child(std::move(join_oper));
 
-    //   for (auto filter_unit = filter_units.rbegin(); filter_unit != filter_units.rend();) {
-    //     const FilterObj &filter_obj_left = (*filter_unit)->left();
-    //     const FilterObj &filter_obj_right = (*filter_unit)->right();
-    //     if (  (
-    //             ( filter_obj_left.is_attr && !filter_obj_right.is_attr ) &&
-    //             ( 0 == strcmp(filter_obj_left.field.table_name(), table->name()))
-    //           ) ||
-    //           (
-    //             ( !filter_obj_left.is_attr && filter_obj_right.is_attr) &&
-    //             ( 0 == strcmp(filter_obj_left.field.table_name(), table->name()))
-    //           ) 
-    //        ) {
-    //       unique_ptr<Expression> left(filter_obj_left.is_attr
-    //                                           ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
-    //                                           : static_cast<Expression *>(new ValueExpr(filter_obj_left.value)));
-
-    //       unique_ptr<Expression> right(filter_obj_right.is_attr
-    //                                             ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
-    //                                             : static_cast<Expression *>(new ValueExpr(filter_obj_right.value)));
-
-    //       ComparisonExpr *cmp_expr = new ComparisonExpr((*filter_unit)->comp(), std::move(left), std::move(right));
-    //       table_scan_exprs.emplace_back(cmp_expr);
-    //       filter_unit = decltype(filter_unit)(filter_units.erase(std::next(filter_unit).base())); // 删除并更新迭代器
-    //     } else {
-    //       ++filter_unit;    
-    //     }
-    //   }
-
-    //   table_scan_oper->set_predicates(std::move(table_scan_exprs));
-    // }
-    if (table_oper == nullptr) {
-      table_oper = std::move(table_get_oper);
+        table_oper = std::move(predicate_oper);
+      }
     } else {
-      JoinLogicalOperator *join_oper = new JoinLogicalOperator;
-      join_oper->add_child(std::move(table_oper));
-      join_oper->add_child(std::move(table_get_oper));
-      table_oper = unique_ptr<LogicalOperator>(join_oper);
+      if (table_oper == nullptr) {
+        table_oper = std::move(table_get_oper);
+      } else {
+        JoinLogicalOperator *join_oper = new JoinLogicalOperator;
+        join_oper->add_child(std::move(table_oper));
+        join_oper->add_child(std::move(table_get_oper));
+        table_oper = unique_ptr<LogicalOperator>(join_oper);
+      }
     }
+    index++;
   }
 
   unique_ptr<LogicalOperator> predicate_oper;

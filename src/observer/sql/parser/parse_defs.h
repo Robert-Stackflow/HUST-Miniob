@@ -103,6 +103,12 @@ struct SelectExprSqlNode
   AggrFuncSqlNode* aggrfunc;
 };
 
+struct JoinSqlNode
+{
+  std::string       relation;                      // join的表
+  std::vector<ConditionSqlNode>   conditions; // on的条件
+};
+
 /**
  * @brief 描述一个select语句
  * @ingroup SQLParser
@@ -119,7 +125,8 @@ struct SelectSqlNode
   // std::vector<RelAttrSqlNode>     attributes;    ///< attributes in select clause
   std::vector<std::string>        relations;     ///< 查询的表
   std::vector<ConditionSqlNode>   conditions;    ///< 查询条件，使用AND串联起来多个条件
-  std::vector<SelectExprSqlNode>     select_exprs;  ///< 表达式
+  std::vector<SelectExprSqlNode>  select_exprs;  ///< 表达式
+  std::vector<JoinSqlNode>        joins;         ///< join列表
 };
 
 /**

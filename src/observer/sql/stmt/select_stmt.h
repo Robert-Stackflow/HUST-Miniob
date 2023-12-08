@@ -25,6 +25,7 @@ class FieldMeta;
 class FilterStmt;
 class Db;
 class Table;
+class JoinStmt;
 
 /**
  * @brief 表示select语句
@@ -56,9 +57,12 @@ public:
   {
     return filter_stmt_;
   }
-
+  std::vector<JoinStmt*> &join_stmts() {
+    return join_stmts_;
+  }
 private:
   std::vector<Expression *> query_exprs_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
+  std::vector<JoinStmt*> join_stmts_;
 };
