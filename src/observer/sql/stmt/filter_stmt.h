@@ -68,7 +68,6 @@ public:
   {
     right_ = obj;
   }
-
   const FilterObj &left() const
   {
     return left_;
@@ -77,7 +76,6 @@ public:
   {
     return right_;
   }
-
 private:
   CompOp comp_ = NO_OP;
   FilterObj left_;

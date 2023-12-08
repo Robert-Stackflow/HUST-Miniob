@@ -20,11 +20,13 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/comparator.h"
 #include "common/lang/string.h"
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats","dates", "booleans"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats","dates", "booleans","nulls"};
+
+std::string NULL_STRING="null";
 
 const char *attr_type_to_string(AttrType type)
 {
-  if (type >= UNDEFINED && type <= DATES) {
+  if (type >= UNDEFINED && type <= NULLS) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -59,6 +61,11 @@ Value::Value(date val)
   set_date(val);
 }
 
+Value::Value(AttrType attr_type)
+{
+  set_type(attr_type);
+}
+
 Value::Value(const char *s, int len /*= 0*/)
 {
   set_string(s, len);
@@ -84,6 +91,9 @@ void Value::set_data(char *data, int length)
     } break;
     case BOOLEANS: {
       num_value_.bool_value_ = *(int *)data != 0;
+      length_ = length;
+    } break;
+    case NULLS: {
       length_ = length;
     } break;
     default: {
@@ -158,6 +168,9 @@ const char *Value::data() const
     case CHARS: {
       return str_value_.c_str();
     } break;
+    case NULLS: {
+        return NULL_STRING.c_str();
+    } break;
     default: {
       return (const char *)&num_value_;
     } break;
@@ -192,6 +205,9 @@ std::string Value::to_string() const
     case CHARS: {
       os << str_value_;
     } break;
+    case NULLS: {
+      os << NULL_STRING;
+    } break;
     default: {
       LOG_WARN("unsupported attr type: %d", attr_type_);
     } break;
@@ -213,6 +229,12 @@ int Value::compare(const Value &other) const
         return common::compare_date((void *)&this->num_value_.date_value_, (void *)&other.num_value_.date_value_);
       } break;
       case CHARS: {
+        return common::compare_string((void *)this->str_value_.c_str(),
+            this->str_value_.length(),
+            (void *)other.str_value_.c_str(),
+            other.str_value_.length());
+      } break;
+      case NULLS: {
         return common::compare_string((void *)this->str_value_.c_str(),
             this->str_value_.length(),
             (void *)other.str_value_.c_str(),

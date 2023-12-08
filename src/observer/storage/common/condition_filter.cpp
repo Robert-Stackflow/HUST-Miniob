@@ -40,7 +40,7 @@ DefaultConditionFilter::~DefaultConditionFilter()
 
 RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op)
 {
-  if (attr_type < CHARS || attr_type > FLOATS) {
+  if (attr_type < CHARS || attr_type > NULLS) {
     LOG_ERROR("Invalid condition with unsupported attribute type: %d", attr_type);
     return RC::INVALID_ARGUMENT;
   }
@@ -113,10 +113,14 @@ RC DefaultConditionFilter::init(Table &table, const ConditionSqlNode &condition)
   // NOTE：这里没有实现不同类型的数据比较，比如整数跟浮点数之间的对比
   // 但是选手们还是要实现。这个功能在预选赛中会出现
   if (type_left != type_right) {
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    if(type_left==NULLS){
+      return init(left, right, type_left, condition.comp);
+    }else if(type_right==NULLS){
+      return init(left, right, type_right, condition.comp);
+    }else{
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
   }
-
-  return init(left, right, type_left, condition.comp);
 }
 
 bool DefaultConditionFilter::filter(const Record &rec) const
@@ -138,7 +142,20 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     right_value.set_value(right_.value);
   }
 
-  int cmp_result = left_value.compare(right_value);
+  int cmp_result;
+
+  if(attr_type_==NULLS){
+    LOG_ERROR("与NULLS比较");
+    if(comp_op_==IS){
+      return left_value.attr_type()==NULLS;
+    }else if(comp_op_==IS_NOT){
+      return left_value.attr_type()!=NULLS;
+    }else{
+      return false;
+    }
+  }else{
+    cmp_result = left_value.compare(right_value);
+  }
 
   switch (comp_op_) {
     case EQUAL_TO:

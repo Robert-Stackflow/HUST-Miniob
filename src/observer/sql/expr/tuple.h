@@ -173,8 +173,13 @@ public:
 
     FieldExpr *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
-    cell.set_type(field_meta->type());
-    cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    if(strcasecmp(this->record_->data() + field_meta->offset(),"null")==0){
+      cell.set_type(NULLS);
+      cell.set_data(this->record_->data() + field_meta->offset(), 4);
+    }else{
+      cell.set_type(field_meta->type());
+      cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    }
     return RC::SUCCESS;
   }
 

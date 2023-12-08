@@ -351,6 +351,7 @@ private:
   Field field_;             // 要聚合的列
   FieldExpr *field_expr_ = nullptr;
 private:
+  bool has_record = false;
   Value value_;
   long long int i_val_;
   long double   f_val_;

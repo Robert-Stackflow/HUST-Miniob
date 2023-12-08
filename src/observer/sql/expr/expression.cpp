@@ -89,31 +89,42 @@ ComparisonExpr::~ComparisonExpr()
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
   RC rc = RC::SUCCESS;
-  int cmp_result = left.compare(right);
+  LOG_WARN("Left Type:%s,Right Type:%s",attr_type_to_string(left.attr_type()),attr_type_to_string(right.attr_type()));
   result = false;
-  switch (comp_) {
-    case EQUAL_TO: {
-      result = (0 == cmp_result);
-    } break;
-    case LESS_EQUAL: {
-      result = (cmp_result <= 0);
-    } break;
-    case NOT_EQUAL: {
-      result = (cmp_result != 0);
-    } break;
-    case LESS_THAN: {
-      result = (cmp_result < 0);
-    } break;
-    case GREAT_EQUAL: {
-      result = (cmp_result >= 0);
-    } break;
-    case GREAT_THAN: {
-      result = (cmp_result > 0);
-    } break;
-    default: {
-      LOG_WARN("unsupported comparison. %d", comp_);
-      rc = RC::INTERNAL;
-    } break;
+  if(right.attr_type()==NULLS){
+    if(comp_==IS){
+      result = left.attr_type()==NULLS;
+    }else if(comp_==IS_NOT){
+      result = left.attr_type()!=NULLS;
+    }else{
+      result = false;
+    }
+  } else {
+    int cmp_result = left.compare(right);
+    switch (comp_) {
+      case EQUAL_TO: {
+        result = (0 == cmp_result);
+      } break;
+      case LESS_EQUAL: {
+        result = (cmp_result <= 0);
+      } break;
+      case NOT_EQUAL: {
+        result = (cmp_result != 0);
+      } break;
+      case LESS_THAN: {
+        result = (cmp_result < 0);
+      } break;
+      case GREAT_EQUAL: {
+        result = (cmp_result >= 0);
+      } break;
+      case GREAT_THAN: {
+        result = (cmp_result > 0);
+      } break;
+      default: {
+        LOG_WARN("unsupported comparison. %d", comp_);
+        rc = RC::INTERNAL;
+      } break;
+    }
   }
 
   return rc;
@@ -400,8 +411,6 @@ TupleCellSpec AggregationExpr::cell_spec(bool with_table_name) const
 
 RC AggregationExpr::begin_aggr() 
 { 
-  // value_ = new Value();
-  //value_->set_type(attr_type_);
   i_val_ = 0;
   f_val_ = 0;
   return RC::SUCCESS; 
@@ -411,34 +420,45 @@ RC AggregationExpr::aggr_tuple(Tuple *&tuple)
 { 
   Value value;
   field_expr_->get_value(*tuple, value);
-  return (this->*aggr_func_)(value);
+  if(value.attr_type()!=NULLS){
+    has_record=true;
+    return (this->*aggr_func_)(value);
+  }
 }
 
 RC AggregationExpr::get_result(Value &value) 
 { 
-  switch (aggr_type_ ) {
-    case MAX_AGGR_T:
-    case MIN_AGGR_T: {
-      value = value_;
-    } break;
-    case COUNT_AGGR_T: {
-      value = Value((int)i_val_);
-    } break;
-    case SUM_AGGR_T: {
-      if (attr_type_ == AttrType::INTS)
+  if(has_record){
+    switch (aggr_type_ ) {
+      case MAX_AGGR_T:
+      case MIN_AGGR_T: {
+        value = value_;
+      } break;
+      case COUNT_AGGR_T: {
         value = Value((int)i_val_);
-      else
-        value = Value((float)f_val_);
-    } break;
-    case AVG_AGGR_T: {
-      if (i_val_ == 0) {
-        value = Value((float)0);
-      } else {
-        value = Value((float)(f_val_ / i_val_));
+      } break;
+      case SUM_AGGR_T: {
+        if (attr_type_ == AttrType::INTS)
+          value = Value((int)i_val_);
+        else
+          value = Value((float)f_val_);
+      } break;
+      case AVG_AGGR_T: {
+        if (i_val_ == 0) {
+          value = Value((float)0);
+        } else {
+          value = Value((float)(f_val_ / i_val_));
+        }
+      } break;
+      default: {
+        return RC::INTERNAL;
       }
-    } break;
-    default: {
-      return RC::INTERNAL;
+    }
+  }else{
+    if(aggr_type_==COUNT_AGGR_T){
+      value = Value((int)i_val_);
+    }else{
+      value=Value(NULLS);
     }
   }
 

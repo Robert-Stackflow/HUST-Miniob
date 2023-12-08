@@ -231,12 +231,10 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
     switch (expr->type())
     {
     case ExprType::FIELD : {
-      LOG_INFO("field expression");
       const FieldExpr* field_expr = static_cast<FieldExpr*>(expr);
       project_operator->add_projection(field_expr->field().table(), field_expr->field().meta());
     } break;
     case ExprType::AGGREGATION : {
-      LOG_INFO("aggregation expression");
       const AggregationExpr* aggr_expr = static_cast<AggregationExpr*>(expr);
       project_operator->add_projection(aggr_expr);
     } break;

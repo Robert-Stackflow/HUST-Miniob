@@ -17,7 +17,17 @@ See the Mulan PSL v2 for more details. */
 
 RC CreateTableStmt::create(Db *db, const CreateTableSqlNode &create_table, Stmt *&stmt)
 {
-  stmt = new CreateTableStmt(create_table.relation_name, create_table.attr_infos);
-  sql_debug("create table statement: table name %s", create_table.relation_name.c_str());
+  CreateTableSqlNode tmp;
+  tmp.relation_name=create_table.relation_name;
+  for (auto attr : create_table.attr_infos) {
+    AttrInfoSqlNode node;
+    node.name=attr.name;
+    node.nullable=attr.nullable;
+    node.type=attr.type;
+    node.length = attr.length > 5 ? attr.length : 5;
+    tmp.attr_infos.emplace_back(node);
+  }
+  stmt = new CreateTableStmt(tmp.relation_name, tmp.attr_infos);
+  sql_debug("create table statement: table name %s", tmp.relation_name.c_str());
   return RC::SUCCESS;
 }

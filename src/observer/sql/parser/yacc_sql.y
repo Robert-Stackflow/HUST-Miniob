@@ -104,6 +104,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         AVG
         SUM
         UNIQUE
+        IS_T
+        NOT
+        NULL_T
+        NULLABLE
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -351,12 +355,13 @@ attr_def_list:
     ;
     
 attr_def:
-    ID type LBRACE number RBRACE 
+    ID type LBRACE number RBRACE
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
+      $$->nullable=false;
       free($1);
     }
     | ID type
@@ -365,9 +370,47 @@ attr_def:
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = 4;
+      $$->nullable=false;
+      free($1);
+    }
+    | ID type LBRACE number RBRACE NOT NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = $4;
+      $$->nullable=false;
+      free($1);
+    }
+    | ID type NOT NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = 4;
+      $$->nullable=false;
+      free($1);
+    }
+    | ID type LBRACE number RBRACE NULLABLE
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = $4;
+      $$->nullable=true;
+      free($1);
+    }
+    | ID type NULLABLE
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = 4;
+      $$->nullable=true;
       free($1);
     }
     ;
+
 number:
     NUMBER {$$ = $1;}
     ;
@@ -442,6 +485,9 @@ value:
     }
     |DATE {
       $$ = new Value((date)$1);
+    }
+    |NULL_T {
+      $$ = new Value(NULLS);
     }
     |SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
@@ -802,6 +848,8 @@ comp_op:
     | LE { $$ = LESS_EQUAL; }
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
+    | IS_T { $$ = IS; }
+    | IS_T NOT { $$ = IS_NOT; }
     ;
 
 load_data_stmt:

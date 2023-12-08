@@ -90,7 +90,16 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
   filter_unit = new FilterUnit;
 
-  if (condition.left_is_attr) {
+  if(condition.comp==IS||condition.comp==IS_NOT){
+    if(!condition.left_is_attr){
+      LOG_WARN("invalid left value : left value has to be attribute");
+      return RC::INVALID_ARGUMENT;
+    }
+    if(condition.right_is_attr||condition.right_value.attr_type()!=NULLS){
+      LOG_WARN("invalid right value : right value has to be null");
+      return RC::INVALID_ARGUMENT;
+    }
+
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
     rc = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
@@ -98,42 +107,61 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
       LOG_WARN("cannot find attr");
       return rc;
     }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_left(filter_obj);
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.left_value);
 
-    if (filter_obj.value.attr_type() == DATES && filter_obj.value.get_date() == 0)
-      return RC::VARIABLE_NOT_VALID;
+    FilterObj filter_obj_left;
+    filter_obj_left.init_attr(Field(table, field));
+    filter_unit->set_left(filter_obj_left);
 
-    filter_unit->set_left(filter_obj);
-  }
+    FilterObj filter_obj_right;
+    filter_obj_right.init_value(condition.right_value);
+    filter_unit->set_right(filter_obj_right);
 
-  if (condition.right_is_attr) {
-    Table *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
+    filter_unit->set_comp(condition.comp);
+  }else{
+    if (condition.left_is_attr) {
+      Table *table = nullptr;
+      const FieldMeta *field = nullptr;
+      rc = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot find attr");
+        return rc;
+      }
+      FilterObj filter_obj;
+      filter_obj.init_attr(Field(table, field));
+      filter_unit->set_left(filter_obj);
+    } else {
+      FilterObj filter_obj;
+      filter_obj.init_value(condition.left_value);
+
+      if (filter_obj.value.attr_type() == DATES && filter_obj.value.get_date() == 0)
+        return RC::VARIABLE_NOT_VALID;
+
+      filter_unit->set_left(filter_obj);
     }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_right(filter_obj);
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.right_value);
 
-    if (filter_obj.value.attr_type() == DATES && filter_obj.value.get_date() == 0)
-      return RC::VARIABLE_NOT_VALID;
+    if (condition.right_is_attr) {
+      Table *table = nullptr;
+      const FieldMeta *field = nullptr;
+      rc = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot find attr");
+        return rc;
+      }
+      FilterObj filter_obj;
+      filter_obj.init_attr(Field(table, field));
+      filter_unit->set_right(filter_obj);
+    } else {
+      FilterObj filter_obj;
+      filter_obj.init_value(condition.right_value);
 
-    filter_unit->set_right(filter_obj);
+      if (filter_obj.value.attr_type() == DATES && filter_obj.value.get_date() == 0)
+        return RC::VARIABLE_NOT_VALID;
+
+      filter_unit->set_right(filter_obj);
+    }
+
+    filter_unit->set_comp(comp);
   }
-
-  filter_unit->set_comp(comp);
-
   // 检查两个类型是否能够比较
   return rc;
 }

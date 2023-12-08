@@ -30,6 +30,7 @@ enum AttrType
   FLOATS,         ///< 浮点数类型(4字节)
   DATES,          ///< DATE类型(4字节)
   BOOLEANS,       ///< boolean类型，当前不是由parser解析出来的，是程序内部使用的
+  NULLS,          ///< null类型
 };
 
 const char *attr_type_to_string(AttrType type);
@@ -53,6 +54,7 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(date val);
+  explicit Value(AttrType attr_type);
   explicit Value(const char *s, int len = 0);
 
   Value(const Value &other) = default;
