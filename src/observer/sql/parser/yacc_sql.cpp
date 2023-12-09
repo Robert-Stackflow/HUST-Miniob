@@ -2283,7 +2283,7 @@ yyreduce:
 #line 598 "yacc_sql.y"
     {
       (yyval.order_node_list) = (yyvsp[0].order_node_list);
-      std::reverse((yyval.order_node_list)->begin(), (yyval.order_node_list)->end());
+      // std::reverse($$->begin(), $$->end());
     }
 #line 2289 "yacc_sql.cpp"
     break;

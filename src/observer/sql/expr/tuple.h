@@ -426,6 +426,16 @@ class JoinedTuple : public Tuple
 public:
   JoinedTuple() = default;
   virtual ~JoinedTuple() = default;
+  JoinedTuple(const JoinedTuple &other)
+  {
+    if (other.left_) {
+      left_ = other.left_->clone();
+    }
+
+    if (other.right_) {
+      right_ = other.right_->clone();
+    }
+  }
   Tuple* clone() const override {
     return new JoinedTuple(*this);
   }

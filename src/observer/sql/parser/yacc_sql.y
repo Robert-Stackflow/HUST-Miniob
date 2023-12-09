@@ -597,7 +597,7 @@ order:
     | ORDER BY order_node_list
     {
       $$ = $3;
-      std::reverse($$->begin(), $$->end());
+      // std::reverse($$->begin(), $$->end());
     }
 order_node_list:
     /* empty */

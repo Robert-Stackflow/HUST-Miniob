@@ -26,10 +26,11 @@ public:
 
     virtual ~OrderPhysicalOperator()
     {
-        for (OrderUnit* ptr : orders_) {
-            if (ptr != nullptr)
-                delete ptr;
+    for (auto tuple : tuples_) {
+        if (tuple) {
+        delete tuple;
         }
+    }
     }
 
     PhysicalOperatorType type() const override
@@ -40,7 +41,7 @@ public:
     RC open(Trx *trx) override;
     RC next() override;
     RC close() override;
-
+    RC fetch_and_sort_table();
     Tuple *current_tuple() override;
 private:
     std::vector<OrderUnit*> orders_;
