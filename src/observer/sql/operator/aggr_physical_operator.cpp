@@ -2,7 +2,7 @@
 // Created by NieYang on 2023/10/20.
 //
 
-#include "sql/operator/aggr_physical_operatior.h"
+#include "sql/operator/aggr_physical_operator.h"
 #include "storage/table/table.h"
 #include "event/sql_debug.h"
 

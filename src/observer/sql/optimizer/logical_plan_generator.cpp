@@ -26,6 +26,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
 #include "sql/operator/aggr_logical_operator.h"
+#include "sql/operator/order_logical_operator.h"
 
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/calc_stmt.h"
@@ -89,16 +90,16 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
 RC LogicalPlanGenerator::create_plan(
     SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  unique_ptr<LogicalOperator> table_oper(nullptr);
-
   const std::vector<Table *> &tables = select_stmt->tables();
   std::vector<Expression*> &query_exprs = select_stmt->query_exprs();
   std::vector<Expression*> aggr_exprs;
-  bool is_inner_join = select_stmt->join_stmts().size() > 0;
   std::vector<JoinStmt*> &join_stmts = select_stmt->join_stmts();
-  int index=0;
-
   FilterStmt * filter_stmt = select_stmt->filter_stmt();
+  int index=0;
+  bool is_inner_join = select_stmt->join_stmts().size() > 0;
+
+  /// 读取
+  unique_ptr<LogicalOperator> table_oper(nullptr);
   for (Table *table : tables) {
     std::vector<Field> fields;
     for (Expression *expr : query_exprs) {
@@ -123,6 +124,8 @@ RC LogicalPlanGenerator::create_plan(
     }
 
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true/*readonly*/));
+
+    /// 连接表
     if (is_inner_join) {
       if (table_oper == nullptr) {
         table_oper = std::move(table_get_oper);
@@ -154,6 +157,7 @@ RC LogicalPlanGenerator::create_plan(
     index++;
   }
 
+  /// 过滤
   unique_ptr<LogicalOperator> predicate_oper;
   RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
   if (rc != RC::SUCCESS) {
@@ -161,43 +165,32 @@ RC LogicalPlanGenerator::create_plan(
     return rc;
   }
 
+  /// 聚合
+  unique_ptr<LogicalOperator> aggr_oper(aggr_exprs.size() != 0?new AggregationLogicalOperator(aggr_exprs):nullptr);
+
+  /// 排序
+  unique_ptr<LogicalOperator> order_by_oper(!select_stmt->orders().empty()?new OrderLogicalOperator(select_stmt->orders()):nullptr);
+
+  /// 投影
   unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(query_exprs));
 
-  // ================== 聚合 ================== //
-  unique_ptr<LogicalOperator> aggr_oper(new AggregationLogicalOperator(aggr_exprs));
-  bool aggr_ = true;
-  if (aggr_exprs.size() != 0) {     // 如果有投影算子，则将后面的都连好
-    if (predicate_oper) {
-      if (table_oper) {
-        predicate_oper->add_child(std::move(table_oper));
+  std::vector<unique_ptr<LogicalOperator>> stack;
+  stack.push_back(std::move(table_oper));
+  stack.push_back(std::move(predicate_oper));
+  stack.push_back(std::move(aggr_oper));
+  stack.push_back(std::move(order_by_oper));
+  stack.push_back(std::move(project_oper));
+  for (int i = 0; i < stack.size() ; i++) {
+    if (stack[i] == nullptr) continue;
+    for (int j = i+1; j < stack.size(); j++) {
+      if (stack[j] != nullptr) {
+        stack[j]->add_child(std::move(stack[i]));
+        break;
       }
-      aggr_oper->add_child(std::move(predicate_oper));
-    } else {
-      if (table_oper) {
-        aggr_oper->add_child(std::move(table_oper));
-      }
-    }
-  } else {
-    aggr_ = false;
-  }
-
-  if (aggr_) {
-    project_oper->add_child(std::move(aggr_oper));
-    logical_operator.swap(project_oper);
-    return RC::SUCCESS;
-  }
-  if (predicate_oper) {
-    if (table_oper) {
-      predicate_oper->add_child(std::move(table_oper));
-    }
-    project_oper->add_child(std::move(predicate_oper));
-  } else {
-    if (table_oper) {
-      project_oper->add_child(std::move(table_oper));
     }
   }
 
-  logical_operator.swap(project_oper);
+  logical_operator.swap(stack[stack.size()-1]);
   return RC::SUCCESS;
 }
 

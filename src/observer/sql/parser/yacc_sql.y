@@ -62,7 +62,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INDEX
         CALC
         SELECT
-        DESC
         SHOW
         SYNC
         INSERT
@@ -110,6 +109,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         NULLABLE
         INNER
         JOIN
+        ORDER
+        BY
+        ASC_T
+        DESC_T
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -138,6 +141,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<RawTuple> *           raw_tuple_list;
   JoinSqlNode *                     join_node;  
   std::vector<JoinSqlNode>*         join_list;
+  OrderType                         order_type;
+  OrderSqlNode *                    order_node;
+  std::vector<OrderSqlNode> *       order_node_list;
 }
 
 %token <number> NUMBER
@@ -196,6 +202,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <raw_tuple_list>      raw_tuple_list
 %type <join_node>           join_node
 %type <join_list>           join_list
+%type <order_type>          order_type
+%type <order_node>          order_node
+%type <order_node_list>     order_node_list
+%type <order_node_list>     order
 
 %left '+' '-'
 %left '*' '/'
@@ -281,7 +291,7 @@ show_tables_stmt:
     ;
 
 desc_table_stmt:
-    DESC ID  {
+    DESC_T ID  {
       $$ = new ParsedSqlNode(SCF_DESC_TABLE);
       $$->desc_table.relation_name = $2;
       free($2);
@@ -530,7 +540,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_exprs FROM ID rel_list where
+    SELECT select_exprs FROM ID rel_list where order
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -548,9 +558,13 @@ select_stmt:        /*  select 语句的语法解析树*/
         $$->selection.conditions.swap(*$6);
         delete $6;
       }
+      if ($7 != nullptr) {
+        $$->selection.orders.swap(*$7);
+        delete $7;
+      }
       free($4);
     }
-    | SELECT select_exprs FROM ID join_node join_list where
+    | SELECT select_exprs FROM ID join_node join_list where order
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -568,7 +582,56 @@ select_stmt:        /*  select 语句的语法解析树*/
         $$->selection.conditions.swap(*$7);
         delete $7;
       }
+      if ($8 != nullptr) {
+        $$->selection.orders.swap(*$8);
+        delete $8;
+      }
       free($4);
+    }
+    ;
+order:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | ORDER BY order_node_list
+    {
+      $$ = $3;
+      std::reverse($$->begin(), $$->end());
+    }
+order_node_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | order_node {
+      $$ = new std::vector<OrderSqlNode>;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    | order_node COMMA order_node_list {
+      $$ = $3;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+order_node:
+    rel_attr order_type
+    {
+      $$ = new OrderSqlNode;
+      $$->type=$2;
+      $$->attribute=*$1;
+      free($1);
+    }
+order_type:
+    /* empty */
+    {
+      $$ = ASC;
+    }
+    | ASC_T {
+      $$ = ASC;
+    }
+    | DESC_T {
+      $$ = DESC;
     }
     ;
 join_list:

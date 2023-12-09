@@ -86,6 +86,8 @@ public:
   Tuple() = default;
   virtual ~Tuple() = default;
 
+  virtual Tuple* clone() const = 0;
+
   /**
    * @brief 获取元组中的Cell的个数
    * @details 个数应该与tuple_schema一致
@@ -143,6 +145,24 @@ public:
       delete spec;
     }
     speces_.clear();
+  }
+
+  RowTuple(const RowTuple &other)
+  {
+    if (other.record_)
+      record_ = new Record(*(other.record_));
+    table_ = other.table_;
+    for (auto fieldExpr : other.speces_) {
+      if (fieldExpr) {
+        speces_.push_back(new FieldExpr(*fieldExpr));
+      } else {
+        speces_.push_back(nullptr);
+      }
+    }
+  }
+
+  Tuple* clone() const override {
+    return new RowTuple(*this);
   }
 
   void set_record(Record *record)
@@ -247,7 +267,9 @@ public:
     }
     speces_.clear();
   }
-
+  Tuple* clone() const override {
+    return new ProjectTuple(*this);
+  }
   void set_tuple(Tuple *tuple)
   {
     this->tuple_ = tuple;
@@ -302,7 +324,9 @@ public:
     : expressions_(expressions)
   {
   }
-  
+  Tuple* clone() const override {
+    return new ExpressionTuple(*this);
+  }
   virtual ~ExpressionTuple()
   {
   }
@@ -346,7 +370,9 @@ class ValueListTuple : public Tuple
 public:
   ValueListTuple() = default;
   virtual ~ValueListTuple() = default;
-
+  Tuple* clone() const override {
+    return new ValueListTuple(*this);
+  }
   void set_cells(const std::vector<Value> &cells)
   {
     cells_ = cells;
@@ -377,12 +403,10 @@ public:
     if (cellSpecs_.size() != cells_.size()) {
       return RC::INTERNAL;
     }
-    // TODO: 修改
     for (int i = 0; i < cellSpecs_.size(); i++) {
       if (spec.alias() && cellSpecs_[i].alias() && 0 == strcmp(spec.alias(), cellSpecs_[i].alias())) {
         return cell_at(i, cell);
       }
-      // TODO alias不同
     }
     return RC::EMPTY;
   }
@@ -402,7 +426,9 @@ class JoinedTuple : public Tuple
 public:
   JoinedTuple() = default;
   virtual ~JoinedTuple() = default;
-
+  Tuple* clone() const override {
+    return new JoinedTuple(*this);
+  }
   void set_left(Tuple *left)
   {
     left_ = left;

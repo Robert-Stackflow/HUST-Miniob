@@ -42,6 +42,7 @@ enum class LogicalOperatorType
   EXPLAIN,    ///< 查看执行计划
   UPDATE,     ///< 更新
   AGGREGATION, // 聚合
+  ORDER_BY,      ///< 排序
 };
 
 /**

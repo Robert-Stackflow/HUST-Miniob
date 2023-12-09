@@ -49,6 +49,7 @@ enum class PhysicalOperatorType
   INSERT,
   UPDATE,
   AGGREGATION,
+  ORDER_BY,
 };
 
 /**

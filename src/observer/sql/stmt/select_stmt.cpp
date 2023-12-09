@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 #include "sql/stmt/join_stmt.h"
+#include "sql/stmt/order_stmt.h"
 
 SelectStmt::~SelectStmt()
 {
@@ -200,12 +201,24 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     join_stmts.push_back(join_stmt);
   }
 
+  std::vector<OrderStmt*> orders;
+  for (size_t i = 0; i < select_sql.orders.size(); i++) {
+    RC rc = RC::SUCCESS;
+    OrderStmt* order_stmt = nullptr;
+    rc = OrderStmt::create(db, default_table, &table_map, select_sql.orders[i], order_stmt);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    orders.push_back(order_stmt);
+  }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   select_stmt->tables_.swap(tables);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->query_exprs_.swap(query_exprs);
   select_stmt->join_stmts_.swap(join_stmts);
+  select_stmt->orders_.swap(orders);
   stmt = select_stmt;
   return RC::SUCCESS;
 }
