@@ -131,6 +131,7 @@ INNER                                   RETURN_TOKEN(INNER);
 JOIN                                    RETURN_TOKEN(JOIN);
 ORDER                                   RETURN_TOKEN(ORDER);
 BY                                      RETURN_TOKEN(BY);
+GROUP                                   RETURN_TOKEN(GROUP);
 ASC                                     RETURN_TOKEN(ASC_T);
 DESC                                    RETURN_TOKEN(DESC_T);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);

@@ -119,7 +119,7 @@ RC PhysicalPlanGenerator::create_plan(AggregationLogicalOperator &aggr_oper, uni
   }
 
   vector<Expression*> &expressions = aggr_oper.select_exprs();
-  oper = unique_ptr<PhysicalOperator>(new AggrPhysicalOperator(expressions));
+  oper = unique_ptr<PhysicalOperator>(new AggrPhysicalOperator(expressions,aggr_oper.query_fields(),aggr_oper.groups()));
   oper->add_child(std::move(child_phy_oper));
   return rc;
 }

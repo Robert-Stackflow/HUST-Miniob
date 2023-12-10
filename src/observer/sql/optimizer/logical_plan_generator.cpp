@@ -93,7 +93,9 @@ RC LogicalPlanGenerator::create_plan(
   const std::vector<Table *> &tables = select_stmt->tables();
   std::vector<Expression*> &query_exprs = select_stmt->query_exprs();
   std::vector<Expression*> aggr_exprs;
+  std::vector<Field> query_fields;
   std::vector<JoinStmt*> &join_stmts = select_stmt->join_stmts();
+  std::vector<GroupStmt*> &group_stmts = select_stmt->groups();
   FilterStmt * filter_stmt = select_stmt->filter_stmt();
   int index=0;
   bool is_inner_join = select_stmt->join_stmts().size() > 0;
@@ -108,6 +110,7 @@ RC LogicalPlanGenerator::create_plan(
           FieldExpr *field_expr = static_cast<FieldExpr*>(expr);
           if (0 == strcmp(field_expr->field().table_name(), table->name())) {
             fields.push_back(field_expr->field());
+            query_fields.push_back(field_expr->field());
           }
         } break;
         case ExprType::AGGREGATION : {
@@ -157,6 +160,24 @@ RC LogicalPlanGenerator::create_plan(
     index++;
   }
 
+  /// 检查group by中select的合法性
+  if(!group_stmts.empty()){
+    for(Field field:query_fields){
+      bool contains=false;
+      for(auto stmt:group_stmts){
+        Field group_field= stmt->group_unit()->field();
+        if(0 == strcmp(field.table_name(), group_field.table_name()) && 0 == strcmp(field.field_name(), group_field.field_name())){
+          contains=true;
+          break;
+        }
+      }
+      if(!contains){
+          LOG_WARN("Selected field [%s.%s] must in group by fields.",field.table_name(),field.field_name());
+          return RC::GROUP_BY_SELECT_INVALID;
+      }
+    }
+  }
+
   /// 过滤
   unique_ptr<LogicalOperator> predicate_oper;
   RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
@@ -166,7 +187,8 @@ RC LogicalPlanGenerator::create_plan(
   }
 
   /// 聚合
-  unique_ptr<LogicalOperator> aggr_oper(aggr_exprs.size() != 0?new AggregationLogicalOperator(aggr_exprs):nullptr);
+  bool has_aggr;
+  unique_ptr<LogicalOperator> aggr_oper(aggr_exprs.size() != 0 ? new AggregationLogicalOperator(aggr_exprs,query_fields,select_stmt->groups()):nullptr);
 
   /// 排序
   unique_ptr<LogicalOperator> order_by_oper(!select_stmt->orders().empty()?new OrderLogicalOperator(select_stmt->orders()):nullptr);

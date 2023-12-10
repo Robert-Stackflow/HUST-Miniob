@@ -39,18 +39,21 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
     if (rc != RC::UNIMPLENMENT) {
       LOG_WARN("failed to create logical plan. rc=%s", strrc(rc));
     }
+    sql_event->session_event()->sql_result()->set_return_code(rc);
     return rc;
   }
 
   rc = rewrite(logical_operator);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to rewrite plan. rc=%s", strrc(rc));
+    sql_event->session_event()->sql_result()->set_return_code(rc);
     return rc;
   }
 
   rc = optimize(logical_operator);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to optimize plan. rc=%s", strrc(rc));
+    sql_event->session_event()->sql_result()->set_return_code(rc);
     return rc;
   }
 
@@ -58,6 +61,7 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
   rc = generate_physical_plan(logical_operator, physical_operator);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to generate physical plan. rc=%s", strrc(rc));
+    sql_event->session_event()->sql_result()->set_return_code(rc);
     return rc;
   }
 

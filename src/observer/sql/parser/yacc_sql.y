@@ -113,6 +113,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         BY
         ASC_T
         DESC_T
+        GROUP
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -144,6 +145,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   OrderType                         order_type;
   OrderSqlNode *                    order_node;
   std::vector<OrderSqlNode> *       order_node_list;
+  GroupSqlNode *                    group_node;
+  std::vector<GroupSqlNode> *       group_node_list;
 }
 
 %token <number> NUMBER
@@ -206,6 +209,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <order_node>          order_node
 %type <order_node_list>     order_node_list
 %type <order_node_list>     order
+%type <group_node>          group_node
+%type <group_node_list>     group_node_list
+%type <group_node_list>     group
 
 %left '+' '-'
 %left '*' '/'
@@ -540,7 +546,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_exprs FROM ID rel_list where order
+    SELECT select_exprs FROM ID rel_list where group order
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -559,12 +565,16 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $6;
       }
       if ($7 != nullptr) {
-        $$->selection.orders.swap(*$7);
+        $$->selection.groups.swap(*$7);
         delete $7;
+      }
+      if ($8 != nullptr) {
+        $$->selection.orders.swap(*$8);
+        delete $8;
       }
       free($4);
     }
-    | SELECT select_exprs FROM ID join_node join_list where order
+    | SELECT select_exprs FROM ID join_node join_list where group order
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -583,8 +593,12 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $7;
       }
       if ($8 != nullptr) {
-        $$->selection.orders.swap(*$8);
+        $$->selection.groups.swap(*$8);
         delete $8;
+      }
+      if ($9 != nullptr) {
+        $$->selection.orders.swap(*$9);
+        delete $9;
       }
       free($4);
     }
@@ -621,6 +635,36 @@ order_node:
       $$->type=$2;
       $$->attribute=*$1;
       free($1);
+    }
+group:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | GROUP BY group_node_list
+    {
+      $$ = $3;
+      std::reverse($$->begin(), $$->end());
+    }
+group_node_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | group_node {
+      $$ = new std::vector<GroupSqlNode>;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    | group_node COMMA group_node_list {
+      $$ = $3;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+group_node:
+    rel_attr
+    {
+      $$ = $1;
     }
 order_type:
     /* empty */

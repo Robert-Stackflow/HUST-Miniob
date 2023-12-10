@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table.h"
 #include "sql/stmt/join_stmt.h"
 #include "sql/stmt/order_stmt.h"
+#include "sql/stmt/group_stmt.h"
 
 SelectStmt::~SelectStmt()
 {
@@ -212,6 +213,17 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     orders.push_back(order_stmt);
   }
 
+  std::vector<GroupStmt*> groups;
+  for (size_t i = 0; i < select_sql.groups.size(); i++) {
+    RC rc = RC::SUCCESS;
+    GroupStmt* group_stmt = nullptr;
+    rc = GroupStmt::create(db, default_table, &table_map, select_sql.groups[i], group_stmt);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    groups.push_back(group_stmt);
+  }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   select_stmt->tables_.swap(tables);
@@ -219,6 +231,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
   select_stmt->query_exprs_.swap(query_exprs);
   select_stmt->join_stmts_.swap(join_stmts);
   select_stmt->orders_.swap(orders);
+  select_stmt->groups_.swap(groups);
   stmt = select_stmt;
   return RC::SUCCESS;
 }

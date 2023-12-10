@@ -119,6 +119,8 @@ struct OrderSqlNode{
   OrderType type;
 };
 
+typedef RelAttrSqlNode GroupSqlNode;
+
 /**
  * @brief 描述一个select语句
  * @ingroup SQLParser
@@ -138,6 +140,7 @@ struct SelectSqlNode
   std::vector<SelectExprSqlNode>  select_exprs;  ///< 表达式
   std::vector<JoinSqlNode>        joins;         ///< join列表
   std::vector<OrderSqlNode>       orders;        ///< order by
+  std::vector<GroupSqlNode>       groups;        ///< group by
 };
 
 /**

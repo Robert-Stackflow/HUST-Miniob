@@ -27,6 +27,7 @@ class Db;
 class Table;
 class JoinStmt;
 class OrderStmt;
+class GroupStmt;
 
 /**
  * @brief 表示select语句
@@ -61,8 +62,11 @@ public:
   std::vector<JoinStmt*> &join_stmts() {
     return join_stmts_;
   }
-  std::vector<OrderStmt*> orders() {
+  std::vector<OrderStmt*> &orders() {
     return orders_;
+  }
+  std::vector<GroupStmt*> &groups() {
+    return groups_;
   }
 private:
   std::vector<Expression *> query_exprs_;
@@ -70,4 +74,5 @@ private:
   FilterStmt *filter_stmt_ = nullptr;
   std::vector<JoinStmt*> join_stmts_;
   std::vector<OrderStmt*> orders_;
+  std::vector<GroupStmt*> groups_;
 };
