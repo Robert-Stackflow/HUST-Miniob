@@ -412,7 +412,9 @@ RC AggregationExpr::begin_aggr()
 { 
   i_val_ = 0;
   f_val_ = 0;
-  return RC::SUCCESS; 
+  value_ = Value();
+  has_record = false;
+  return RC::SUCCESS;
 }
 
 RC AggregationExpr::aggr_tuple(Tuple *&tuple) 

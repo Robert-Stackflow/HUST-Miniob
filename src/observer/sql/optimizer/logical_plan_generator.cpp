@@ -187,7 +187,6 @@ RC LogicalPlanGenerator::create_plan(
   }
 
   /// 聚合
-  bool has_aggr;
   unique_ptr<LogicalOperator> aggr_oper(aggr_exprs.size() != 0 ? new AggregationLogicalOperator(aggr_exprs,query_fields,select_stmt->groups()):nullptr);
 
   /// 排序
