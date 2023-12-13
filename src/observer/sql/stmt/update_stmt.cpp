@@ -53,6 +53,9 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
     // TODO 检查date不合法
     // 检查value
   }
+  if (update.value.attr_type() == DATES && update.value.get_date() == 0) {
+      return RC::VARIABLE_NOT_VALID;
+  }
   // 处理where子句
   std::unordered_map<std::string, Table *> table_map;
   table_map.insert(std::pair<std::string, Table *>(std::string(table_name), table));
