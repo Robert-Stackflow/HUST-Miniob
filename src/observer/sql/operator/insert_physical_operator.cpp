@@ -25,7 +25,7 @@ InsertPhysicalOperator::InsertPhysicalOperator(Table *table, std::vector<RawTupl
 
 RC InsertPhysicalOperator::open(Trx *trx)
 {
-  std::vector<Record *> records;
+  std::vector<Record* > inserted_records;
   for(auto tuple : tuples_) {
     Record record;
     RC rc = table_->make_record(static_cast<int>(tuple.size()), tuple.data(), record);
@@ -34,14 +34,15 @@ RC InsertPhysicalOperator::open(Trx *trx)
       return rc;
     }
     rc = trx->insert_record(table_, record);
-    records.emplace_back(&record);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
-      for(Record* tmp: records){
+      for(Record* tmp: inserted_records){
+        LOG_WARN("%s", tmp->data()+5);
         trx->delete_record(table_,*tmp);
       }
       return rc;
     }
+    inserted_records.emplace_back(new Record(record));
   }
   return RC::SUCCESS;
 }
