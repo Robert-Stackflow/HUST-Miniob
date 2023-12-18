@@ -50,9 +50,8 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
     LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
           table_name, field_meta->name(), field_meta->type(), update.value.attr_type());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    // TODO 检查date不合法
-    // 检查value
   }
+  // 检查date不合法
   if (update.value.attr_type() == DATES && update.value.get_date() == 0) {
       return RC::VARIABLE_NOT_VALID;
   }

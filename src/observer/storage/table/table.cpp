@@ -216,13 +216,6 @@ RC Table::destroy(const char* dir) {
       }
     }
 
-    // //删除Text
-    // std::string text_data_file = std::string(dir) + "/" + name() + TABLE_TEXT_DATA_SUFFIX;
-    // if(unlink(text_data_file.c_str()) != 0) { // 删除表实现text字段的数据文件（后续实现了text case时需要考虑，最开始可以不考虑这个逻辑）
-    //     LOG_ERROR("Failed to remove text data file=%s, errno=%d", text_data_file.c_str(), errno);
-    //     return RC::GENERIC_ERROR;
-    // }
-
     rc = data_buffer_pool_->close_file();
     if (rc != RC::SUCCESS) {
         return rc;

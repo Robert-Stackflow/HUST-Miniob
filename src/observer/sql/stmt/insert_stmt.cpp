@@ -30,14 +30,14 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
     return RC::INVALID_ARGUMENT;
   }
 
-  // check whether the table exists
+  // 表是否存在
   Table *table = db->find_table(table_name);
   if (nullptr == table) {
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  // check the fields number
+  // 遍历每个要插入的元组
   for(auto values : inserts.tuples) {
     const int value_num = static_cast<int>(values.size());
     const TableMeta &table_meta = table->table_meta();
@@ -47,17 +47,20 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
       return RC::SCHEMA_FIELD_MISSING;
     }
 
-    // check fields type
     const int sys_field_num = table_meta.sys_field_num();
     for (int i = 0; i < value_num; i++) {
+      // 每个值是否合法
       const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
       const AttrType field_type = field_meta->type();
       const AttrType value_type = values[i].attr_type();
+      // 值与字段类型是否匹配
+      // 检查NULL合法性
       if (field_type != value_type && !(value_type==NULLS && field_meta->nullable())) {
         LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
             table_name, field_meta->name(), field_type, value_type);
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
+      // 检查date不合法
       if (value_type == DATES && values[i].get_date() == 0) {
         return RC::VARIABLE_NOT_VALID;
       }

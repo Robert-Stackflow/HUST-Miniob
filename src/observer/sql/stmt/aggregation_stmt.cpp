@@ -8,7 +8,7 @@
 #include "storage/table/table.h"
 #include "common/util.h"
 
-RC AggrFuncItem::add_field(Field *&field) 
+RC AggrFuncUnit::add_field(Field *&field) 
 {
     if (all_field_) {
       return RC::INTERNAL;
@@ -29,18 +29,18 @@ RC AggrFuncItem::add_field(Field *&field)
     }
 }
 
-bool AggrFuncItem::check_all_field(Field *field) 
+bool AggrFuncUnit::check_all_field(Field *field) 
 { 
   return 0==strcmp(field->meta()->name(), "*"); 
 }
 
 RC AggrStmt::create_aggr_func_item(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-    AggrFuncSqlNode &aggr_func_sql_node, AggrFuncItem *&aggr_func_item)
+    AggrFuncSqlNode &aggr_func_sql_node, AggrFuncUnit *&aggr_func_item)
 {
     RC rc = RC::SUCCESS;
 
-    AggrFuncItem *tmp_aggr_func_item = new AggrFuncItem();
-    tmp_aggr_func_item->setType(aggr_func_sql_node.type);
+    AggrFuncUnit *tmp_aggr_func_unit = new AggrFuncUnit();
+    tmp_aggr_func_unit->setType(aggr_func_sql_node.type);
     Table *table = nullptr;
     const FieldMeta *field_meta = nullptr;
     for (RelAttrSqlNode &attr : aggr_func_sql_node.attributes) {
@@ -49,13 +49,13 @@ RC AggrStmt::create_aggr_func_item(Db *db, Table *default_table, std::unordered_
             return rc;
         }
         Field *new_field = new Field(table, field_meta);
-        rc = tmp_aggr_func_item->add_field(new_field);
+        rc = tmp_aggr_func_unit->add_field(new_field);
         if (rc != RC::SUCCESS) {
             return rc;
         }
     }
 
-    aggr_func_item = tmp_aggr_func_item;
+    aggr_func_item = tmp_aggr_func_unit;
 
     return rc;
 }

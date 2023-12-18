@@ -29,12 +29,11 @@ RC AggrPhysicalOperator::open(Trx *trx)
 
 RC AggrPhysicalOperator::fetch_and_split() {
     RC rc = RC::SUCCESS;
-    // 循环从孩子节点获取数据
-    PhysicalOperator *oper = children_.front().get();
-    std::vector<Tuple *> tuples;
-
-    while (RC::SUCCESS == (rc = oper->next())) {
-        Tuple* tuple = oper->current_tuple()->clone();
+    PhysicalOperator *child_oper = children_.front().get();
+    std::vector<Tuple *> tuples;// 所有元组
+    // 循环从子算子获取所有元组
+    while (RC::SUCCESS == (rc = child_oper->next())) {
+        Tuple* tuple = child_oper->current_tuple()->clone();
         tuples.push_back(tuple);
     }
 
@@ -108,18 +107,22 @@ std::vector<std::vector<Tuple *>> group_by_field(std::vector<Tuple *> tuples,con
 RC AggrPhysicalOperator::aggr_tuples(std::vector<Tuple *> tuples , ValueListTuple &result){
     Tuple *tuple = nullptr;
 
+    // 遍历所有聚合函数表达式，开始聚合
     for (Expression* expr: expressions_) {
         AggregationExpr *aggr_expr = static_cast<AggregationExpr *>(expr);
         aggr_expr->begin_aggr();
     }
 
+    // 遍历所有元组
     for(auto tuple:tuples){
+        // 遍历所有聚合函数表达式，聚合当前元组
         for (Expression* expr: expressions_) {
             AggregationExpr *aggr_expr = static_cast<AggregationExpr *>(expr);
             aggr_expr->aggr_tuple(tuple);
         }
     }
 
+    // 获取结果
     std::vector<Value> results;
     std::vector<TupleCellSpec> speces;
     for (Field field: query_fields_) {

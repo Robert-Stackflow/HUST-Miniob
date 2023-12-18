@@ -64,7 +64,6 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
       rc = create_plan(insert_stmt, logical_operator);
     } break;
 
-
     case StmtType::DELETE: {
       DeleteStmt *delete_stmt = static_cast<DeleteStmt *>(stmt);
       rc = create_plan(delete_stmt, logical_operator);
@@ -90,18 +89,19 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
 RC LogicalPlanGenerator::create_plan(
     SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  const std::vector<Table *> &tables = select_stmt->tables();
-  std::vector<Expression*> &query_exprs = select_stmt->query_exprs();
-  std::vector<Expression*> aggr_exprs;
-  std::vector<Field> query_fields;
+  const std::vector<Table *> &tables = select_stmt->tables();// select的所有表
+  std::vector<Expression*> &query_exprs = select_stmt->query_exprs();// select的所有表达式
+  std::vector<Expression*> aggr_exprs;// select的聚合表达式
+  std::vector<Field> query_fields;// select的字段
   std::vector<JoinStmt*> &join_stmts = select_stmt->join_stmts();
   std::vector<GroupStmt*> &group_stmts = select_stmt->groups();
-  FilterStmt * filter_stmt = select_stmt->filter_stmt();
-  int index=0;
-  bool is_inner_join = select_stmt->join_stmts().size() > 0;
+  FilterStmt * filter_stmt = select_stmt->filter_stmt();// select的查询条件
+  int index=0;// 内连接使用的循环变量
+  bool is_inner_join = select_stmt->join_stmts().size() > 0;// 是否为内连接
 
-  /// 读取
+  // 总的读取表算子
   unique_ptr<LogicalOperator> table_oper(nullptr);
+  // 遍历所有表
   for (Table *table : tables) {
     std::vector<Field> fields;
     for (Expression *expr : query_exprs) {
@@ -126,10 +126,12 @@ RC LogicalPlanGenerator::create_plan(
       }
     }
 
+    // 获取表数据的算子
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true/*readonly*/));
 
-    /// 连接表
+    // 连接表
     if (is_inner_join) {
+      // 内连接
       if (table_oper == nullptr) {
         table_oper = std::move(table_get_oper);
       } else {
@@ -148,6 +150,7 @@ RC LogicalPlanGenerator::create_plan(
         table_oper = std::move(predicate_oper);
       }
     } else {
+      // 自然连接
       if (table_oper == nullptr) {
         table_oper = std::move(table_get_oper);
       } else {
@@ -160,7 +163,7 @@ RC LogicalPlanGenerator::create_plan(
     index++;
   }
 
-  /// 检查group by中select的合法性
+  // 检查group by中select的合法性
   if(!group_stmts.empty()){
     for(Field field:query_fields){
       bool contains=false;
@@ -178,7 +181,7 @@ RC LogicalPlanGenerator::create_plan(
     }
   }
 
-  /// 过滤
+  // 过滤算子
   unique_ptr<LogicalOperator> predicate_oper;
   RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
   if (rc != RC::SUCCESS) {
@@ -186,15 +189,16 @@ RC LogicalPlanGenerator::create_plan(
     return rc;
   }
 
-  /// 聚合
+  // 聚合算子
   unique_ptr<LogicalOperator> aggr_oper(aggr_exprs.size() != 0 ? new AggregationLogicalOperator(aggr_exprs,query_fields,select_stmt->groups()):nullptr);
 
-  /// 排序
+  // 排序算子
   unique_ptr<LogicalOperator> order_by_oper(!select_stmt->orders().empty()?new OrderLogicalOperator(select_stmt->orders()):nullptr);
 
-  /// 投影
+  // 投影算子
   unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(query_exprs));
 
+  // 连接所有算子，跳过为nullptr的算子
   std::vector<unique_ptr<LogicalOperator>> stack;
   stack.push_back(std::move(table_oper));
   stack.push_back(std::move(predicate_oper));
@@ -270,9 +274,9 @@ RC LogicalPlanGenerator::create_plan(
     const FieldMeta *field_meta = table->table_meta().field(i);
     fields.push_back(Field(table, field_meta));
   }
-  // 创建获取表数据的逻辑算子，false表示可修改数据
+  // 创建获取表数据算子，false表示可修改数据
   unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, false));
-  // 根据filter_stmt创建过滤逻辑算子
+  // 根据filter_stmt创建过滤算子
   unique_ptr<LogicalOperator> predicate_oper;
   RC rc = create_plan(filter_stmt, predicate_oper);
   if (rc != RC::SUCCESS) {
@@ -280,6 +284,7 @@ RC LogicalPlanGenerator::create_plan(
   }
   // 创建更新算子
   unique_ptr<LogicalOperator> update_oper(new UpdateLogicalOperator(table, value, field_name));
+  // 连接各个算子
   if (predicate_oper) {
     predicate_oper->add_child(std::move(table_get_oper));
     update_oper->add_child(std::move(predicate_oper));

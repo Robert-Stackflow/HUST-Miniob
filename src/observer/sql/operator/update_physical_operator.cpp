@@ -48,14 +48,13 @@ RC UpdatePhysicalOperator::next()
         char * data = record.data();
         const TableMeta table_meta = table_->table_meta();
         const FieldMeta * field_meta = table_meta.field(field_.c_str());
-        // TODO: 有更新不成功的bug
+        //上锁
         common::Mutex lock_;
         lock_.lock();
         const char *value_data = value_->data();
-        memmove(data + field_meta->offset(), value_data, (size_t)value_->length());
+        // 根据待更新字段的偏移更新
         memmove(data + field_meta->offset(), value_data, (size_t)value_->length());
         lock_.unlock();
-        // 是否需要手动更新索引?
         if (rc != RC::SUCCESS) {
             LOG_WARN("failed to update record: %s", strrc(rc));
             return rc;

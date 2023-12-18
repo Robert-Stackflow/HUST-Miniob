@@ -37,7 +37,6 @@ RC InsertPhysicalOperator::open(Trx *trx)
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
       for(Record* tmp: inserted_records){
-        LOG_WARN("%s", tmp->data()+5);
         trx->delete_record(table_,*tmp);
       }
       return rc;

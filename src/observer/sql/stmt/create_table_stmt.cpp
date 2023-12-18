@@ -25,6 +25,8 @@ RC CreateTableStmt::create(Db *db, const CreateTableSqlNode &create_table, Stmt 
     node.nullable=attr.nullable;
     node.type=attr.type;
     node.length = attr.length > 5 ? attr.length : 5;
+    if(node.type==DATES)
+      node.length=10;
     tmp.attr_infos.emplace_back(node);
   }
   stmt = new CreateTableStmt(tmp.relation_name, tmp.attr_infos);

@@ -90,12 +90,14 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
 {
   RC rc = RC::SUCCESS;
   result = false;
+  // 如果右值为NULL，则运算符只能为IS或IS_NOT
   if(right.attr_type()==NULLS){
     if(comp_==IS){
       result = left.attr_type()==NULLS;
     }else if(comp_==IS_NOT){
       result = left.attr_type()!=NULLS;
     }else{
+      // 其他一律返回false
       result = false;
     }
   } else {
@@ -421,6 +423,7 @@ RC AggregationExpr::aggr_tuple(Tuple *&tuple)
 { 
   Value value;
   field_expr_->get_value(*tuple, value);
+  // 当要聚合的值不是NULL时才进行聚合
   if(value.attr_type()!=NULLS){
     has_record=true;
     return (this->*aggr_func_)(value);
@@ -457,6 +460,7 @@ RC AggregationExpr::get_result(Value &value)
       }
     }
   }else{
+    // 没有被聚合的元组时，除了COUNT都返回NULL
     if(aggr_type_==COUNT_AGGR_T){
       value = Value((int)i_val_);
     }else{

@@ -69,9 +69,9 @@ public:
     return groups_;
   }
 private:
-  std::vector<Expression *> query_exprs_;
-  std::vector<Table *> tables_;
-  FilterStmt *filter_stmt_ = nullptr;
+  std::vector<Expression *> query_exprs_; // Select的表达式列表，可以是字段或聚合函数
+  std::vector<Table *> tables_; // Select的表列表
+  FilterStmt *filter_stmt_ = nullptr; // Select查询条件
   std::vector<JoinStmt*> join_stmts_;
   std::vector<OrderStmt*> orders_;
   std::vector<GroupStmt*> groups_;

@@ -64,10 +64,13 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   filter_unit = new FilterUnit;
 
   if(condition.comp==IS||condition.comp==IS_NOT){
+    // 运算符为IS或IS_NOT
+    // 右值只能为NULL类型的值
     if(condition.right_is_attr||condition.right_value.attr_type()!=NULLS){
       LOG_WARN("invalid right value : right value has to be null");
       return RC::INVALID_ARGUMENT;
     }
+    // 设置左值
     if (condition.left_is_attr) {
       Table *table = nullptr;
       const FieldMeta *field = nullptr;
@@ -76,7 +79,6 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
         LOG_WARN("cannot find attr");
         return rc;
       }
-
       FilterObj filter_obj_left;
       filter_obj_left.init_attr(Field(table, field));
       filter_unit->set_left(filter_obj_left);
@@ -89,12 +91,14 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
       filter_unit->set_left(filter_obj);
     }
+    // 设置右值
     FilterObj filter_obj_right;
     filter_obj_right.init_value(condition.right_value);
     filter_unit->set_right(filter_obj_right);
 
     filter_unit->set_comp(condition.comp);
   }else{
+    // 设置左值
     if (condition.left_is_attr) {
       Table *table = nullptr;
       const FieldMeta *field = nullptr;
@@ -109,13 +113,13 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     } else {
       FilterObj filter_obj;
       filter_obj.init_value(condition.left_value);
-
+      // 检查date不合法
       if (filter_obj.value.attr_type() == DATES && filter_obj.value.get_date() == 0)
         return RC::VARIABLE_NOT_VALID;
 
       filter_unit->set_left(filter_obj);
     }
-
+    // 设置右值
     if (condition.right_is_attr) {
       Table *table = nullptr;
       const FieldMeta *field = nullptr;
@@ -130,7 +134,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     } else {
       FilterObj filter_obj;
       filter_obj.init_value(condition.right_value);
-
+      // 检查date不合法
       if (filter_obj.value.attr_type() == DATES && filter_obj.value.get_date() == 0)
         return RC::VARIABLE_NOT_VALID;
 
@@ -139,6 +143,5 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
     filter_unit->set_comp(comp);
   }
-  // 检查两个类型是否能够比较
   return rc;
 }

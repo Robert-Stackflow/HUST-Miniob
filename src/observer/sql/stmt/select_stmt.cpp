@@ -56,10 +56,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     return RC::INVALID_ARGUMENT;
   }
 
-  // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
   
+  // 检查所有表是否存在
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].c_str();
     if (nullptr == table_name) {
@@ -77,6 +77,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
 
+  // 检查join的所有表是否存在
   for (size_t i = 0; i < select_sql.joins.size(); i++) {
     const char *table_name = select_sql.joins[i].relation.c_str();
     LOG_WARN("Relation name is %s", table_name);
@@ -95,7 +96,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
 
-  // collect query fields in `select` statement
   std::vector<Expression *> query_exprs;
   int num_attr = 0; // 属性数
   int num_aggr = 0; // 聚合数
@@ -106,7 +106,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
       if (tables.size() == 1) {
         default_table = tables[0];
       }
-      AggrFuncItem *aggr_unit = nullptr;
+      AggrFuncUnit *aggr_unit = nullptr;
 
       RC rc = AggrStmt::create_aggr_func_item(db,
         default_table,

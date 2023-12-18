@@ -10,11 +10,11 @@
 
 class FieldMeta;
 
-class AggrFuncItem
+class AggrFuncUnit
 {
 public:
-  AggrFuncItem() = default;
-  ~AggrFuncItem(){};
+  AggrFuncUnit() = default;
+  ~AggrFuncUnit(){};
 
   AggrFuncType type() const { return type_; }
   void         setType(AggrFuncType type) { type_ = type; }
@@ -50,19 +50,13 @@ public:
   AggrStmt() = default;
   virtual ~AggrStmt()
   {
-    for (AggrFuncItem *i : aggr_func_items_)
-      delete i;
   }
 
 public:
-  const std::vector<AggrFuncItem *> &aggr_func_items() const { return aggr_func_items_; }
-
-  void add_aggr_unit(AggrFuncItem *aggr_unit) { aggr_func_items_.emplace_back(aggr_unit); }
 
 public:
   static RC create_aggr_func_item(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-      AggrFuncSqlNode &aggr_func_sql_node, AggrFuncItem *&aggr_func_item);
+      AggrFuncSqlNode &aggr_func_sql_node, AggrFuncUnit *&aggr_func_item);
 
 private:
-  std::vector<AggrFuncItem *> aggr_func_items_;
 };

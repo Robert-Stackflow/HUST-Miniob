@@ -94,7 +94,6 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
   if(unique_){
     RC rc;
-    RID rid;
     rc=find(create_scanner(nullptr,0,false,nullptr,0,false),record + field_meta_.offset());
     // IndexScanner *scanner =create_scanner(record + field_meta_.offset(),0,true,record + field_meta_.offset(),0,true);
     // rc=scanner->next_entry(&rid);
